@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8"/>
+    <title>튜토리얼 #02</title>
+</head>
+<body>
+
+<nav>
+    <ul>
+        {% if not user.is_authenticated %}
+            <li><a href="{% url 'accounts:signup' %}">회원가입</a></li>
+            <li><a href="{% url 'accounts:login' %}">로그인</a></li>
+        {% else %}
+            <li><a href="{% url 'accounts:profile' %}">프로필</a></li>
+            <li>
+                <form action="/accounts/logout/" method="post"
+                      style="display: inline-block;">
+                    {% csrf_token %}
+                    <input type="submit" value="로그아웃"/>
+                </form>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+
+<main>
+    {% block main %}
+    {% endblock %}
+</main>
+
+<footer>
+    &copy; 2025. 파이썬사랑방.
+</footer>
+
+</body>
+</html>
