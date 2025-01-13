@@ -2,3 +2,5 @@ django~=5.1.0
 daphne
 channels
 
+django-environ
+
