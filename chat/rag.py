@@ -1,3 +1,4 @@
+import logging
 import pickle
 from pathlib import Path
 from typing import List
@@ -9,6 +10,8 @@ import openai
 
 from django.conf import settings
 
+
+logger = logging.getLogger(__name__)
 
 client = openai.Client(
     api_key=settings.OPENAI_API_KEY,
@@ -65,7 +68,7 @@ class VectorStore(list):
     def save(self, vector_store_path: Path) -> None:
         with vector_store_path.open("wb") as f:
             pickle.dump(self, f)
-            print(f"saved vector store to {vector_store_path}")
+            logger.debug(f"saved vector store to %s", vector_store_path)
 
     def search(self, question: str, top_k: int = 4) -> List[Document]:
         # pip install -U scikit-learn
@@ -91,5 +94,5 @@ class VectorStore(list):
 def print_prices(input_tokens: int, output_tokens: int) -> None:
     input_price = (input_tokens * 0.150 / 1_000_000) * 1_500
     output_price = (output_tokens * 0.600 / 1_000_000) * 1_500
-    print("input: tokens {}, krw {:.4f}".format(input_tokens, input_price))
-    print("output: tokens {}, krw {:4f}".format(output_tokens, output_price))
+    logger.debug("input: tokens %s, krw %.4f".format(input_tokens, input_price))
+    logger.debug("output: tokens %s, krw %.4f".format(output_tokens, output_price))
