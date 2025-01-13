@@ -5,4 +5,5 @@ app_name = "chat"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("reply/", views.reply, name="reply"),
 ]
