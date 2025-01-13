@@ -1,9 +1,13 @@
 django~=5.1.0
 daphne
-channels
+channels~=4.2.0
 
 django-debug-toolbar
-django-environ
+django-environ~=0.11.2
 django-extensions
 
-openai
+openai~=1.59.6
+langchain
+langchain-core
+scikit-learn~=1.6.1
+numpy~=2.2.1

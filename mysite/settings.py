@@ -139,3 +139,13 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 INTERNAL_IPS = env.list("INTERNAL_IPS", default=["127.0.0.1"])
+
+
+OPENAI_API_KEY = env.str("OPENAI_API_KEY", default=None)
+
+RAG_EMBEDDING_MODEL = env.str("RAG_EMBEDDING_MODEL", default="text-embedding-3-small")
+
+VECTOR_STORE_PATH = env.str(
+    "VECTOR_STORE_PATH",
+    default=(BASE_DIR / "vector_store.pickle"),
+)
