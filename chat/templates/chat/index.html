@@ -4,29 +4,13 @@
 
     <h2>WebSocket Chat</h2>
 
-    <form id="form" action="{% url 'chat:reply' %}" method="post">
+    <form id="form" hx-post="{% url 'chat:reply' %}"
+          hx-target="#messages"
+          hx-swap="beforeend"
+          hx-on::after-request="this.reset();">
         {% csrf_token %}
         <input type="text" name="message"/>
     </form>
 
     <div id="messages"></div>
-
-    <script>
-      document.querySelector('#form').addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        const formEl = e.target;
-        const url = formEl.action;
-        const data = new FormData(formEl);
-        formEl.reset();
-
-        try {
-          const response = await fetch(url, {method: 'POST', body: data});
-          const html = await response.text();
-          document.querySelector('#messages').innerHTML += html;
-        } catch (error) {
-          console.error(error);
-        }
-      });
-    </script>
 {% endblock %}
