@@ -16,9 +16,15 @@ def reply(request):
         system_prompt = "당신은 친절한 AI 어시스턴트입니다."
         ai_message = make_ai_message(system_prompt, human_message)
 
+        # https://daisyui.com/components/chat/
         return HttpResponse(
             format_html(
-                "<div>[Human] {}</div><div>[AI] {}</div>", human_message, ai_message
+                """
+                    <div class="chat chat-start"><div class="chat-bubble">{}</div></div>
+                    <div class="chat chat-end"><div class="chat-bubble">{}</div></div>
+                """,
+                human_message,
+                ai_message,
             )
         )
     else:

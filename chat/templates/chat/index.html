@@ -2,15 +2,22 @@
 
 {% block main %}
 
-    <h2>WebSocket Chat</h2>
+    <div class="flex flex-col h-[calc(100vh-4rem)] w-full p-2">
+        <div id="messages" class="flex-1 overflow-y-auto"
+             hx-on::after-settle="this.scrollTo({ top: this.scrollHeight, behavior: 'smooth' });">
+        </div>
 
-    <form id="form" hx-post="{% url 'chat:reply' %}"
-          hx-target="#messages"
-          hx-swap="beforeend"
-          hx-on::after-request="this.reset();">
-        {% csrf_token %}
-        <input type="text" name="message"/>
-    </form>
+        <form id="form"
+              hx-post="{% url 'chat:reply' %}"
+              hx-target="#messages"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset();">
+            {% csrf_token %}
+            <input type="text" name="message"
+                   class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:border-blue-500"
+                   autocomplete="off"
+                   placeholder="메시지를 입력하세요..."/>
+        </form>
+    </div>
 
-    <div id="messages"></div>
 {% endblock %}
