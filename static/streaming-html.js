@@ -112,6 +112,13 @@
                 count: chunkCount++,
               });
             } else {
+              // 스트리밍이 완료되면 afterRequest 이벤트를 수동으로 트리거
+              htmx.trigger(currentElement, "htmx:afterRequest", {
+                elt: currentElement,
+                target: targetElement,
+                requestConfig: {},
+              });
+
               // 스트리밍이 완료되면 afterSettle 이벤트를 수동으로 트리거
               htmx.trigger(currentElement, "htmx:afterSettle", {
                 elt: currentElement,
