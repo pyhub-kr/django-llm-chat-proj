@@ -1,19 +1,21 @@
 import logging
+from typing import Union, AsyncGenerator, Optional
 
 import openai
 from django.conf import settings
-from . import rag
+from openai import AsyncStream
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
+from . import rag
 
 logger = logging.getLogger(__name__)
 
-client = openai.Client(
-    api_key=settings.OPENAI_API_KEY,
-)
+sync_client = openai.Client(api_key=settings.OPENAI_API_KEY)
+async_client = openai.AsyncClient(api_key=settings.OPENAI_API_KEY)
 
 
 def make_ai_message(system_prompt: str, human_message: str) -> str:
-    completion = client.chat.completions.create(
+    completion = sync_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": system_prompt},
@@ -34,11 +36,14 @@ class PaikdabangAI:
             logger.error("Failed to load vector store: %s", e)
             self.vector_store = rag.VectorStore()
 
-    def __call__(self, question: str) -> str:
+    async def get_response(self, question: str, stream: bool = False) -> Union[
+        ChatCompletion,  # 동기 OpenAI API 호출 시
+        AsyncStream[ChatCompletionChunk],  # 비동기 OpenAI API 호출 시
+    ]:
         search_doc_list = self.vector_store.search(question)
         지식 = "\n\n".join(doc.page_content for doc in search_doc_list)
 
-        res = client.chat.completions.create(
+        return await async_client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
@@ -51,10 +56,27 @@ class PaikdabangAI:
             ],
             model="gpt-4o-mini",
             temperature=0,
+            stream=stream,
         )
-        ai_message = res.choices[0].message.content
 
+    # 비동기. 한 번에 전체 응답을 반환
+    async def __call__(self, question: str) -> str:
+        return await self.ainvoke(question)
+
+    # 비동기. 한 번에 전체 응답을 반환
+    async def ainvoke(self, question: str) -> str:
+        res: ChatCompletion
+        res = await self.get_response(question, stream=False)
+        ai_message = res.choices[0].message.content
         return ai_message
+
+    # 비동기. 응답이 생성되는 대로 점진적으로 반환
+    async def astream(self, question: str) -> AsyncGenerator[Optional[str]]:
+        res: AsyncStream[ChatCompletionChunk]
+        res = await self.get_response(question, stream=True)
+        async for chunk in res:
+            ai_message_chunk: str = chunk.choices[0].delta.content
+            yield ai_message_chunk
 
 
 ask_paikdabang = PaikdabangAI()
