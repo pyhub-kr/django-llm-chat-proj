@@ -1,6 +1,6 @@
-# # RAG #01. RAG 밑바닥부터 웹 채팅까지
+# RAG #02. 실전: 빽다방 문서 pgvector 임베딩
 
-* 튜토리얼 : https://ai.pyhub.kr/rag-01/
+* 튜토리얼 : https://ai.pyhub.kr/rag-02/
 
 ## 가상환경 생성 및 활성화
 
@@ -26,12 +26,6 @@ cp .env.sample .env
 ```
 python manage.py migrate
 python manage.py createsuperuser
-```
-
-## Vector Store 생성
-
-```
-python manage.py make_vector_store ./chat/assets/빽다방.txt
 ```
 
 ## 개발서버 구동
