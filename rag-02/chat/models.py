@@ -6,9 +6,11 @@ import openai
 import tiktoken
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models
+from django.db.models import Index
 from django_lifecycle import hook, BEFORE_CREATE, BEFORE_UPDATE, LifecycleModelMixin
-from pgvector.django import VectorField, HnswIndex, CosineDistance
+from pgvector.django import VectorField, HnswIndex, CosineDistance, L2Distance
 
 from chat.utils import make_groups_by_length
 from chat.validators import MaxTokenValidator
@@ -37,7 +39,7 @@ class Item(models.Model):
         ]
 
 
-class PaikdabangMenuDocumentQuerySet(models.QuerySet):
+class DocumentQuerySet(models.QuerySet):
 
     def bulk_create(self, objs, *args, max_retry=3, interval=60, **kwargs):
         # 임베딩 필드가 지정되지 않은 인스턴스만 추출
@@ -82,21 +84,42 @@ class PaikdabangMenuDocumentQuerySet(models.QuerySet):
         raise NotImplementedError
         return await super().abulk_create(objs, *args, **kwargs)
 
-    async def search(self, question: str, k: int = 4) -> List["PaikdabangMenuDocument"]:
-        # 모델 클래스의 비동기 aembed 클래스 함수를 호출하여 질문 벡터를 생성합니다.
+    async def search(self, question: str, k: int = 4) -> List["Document"]:
         question_embedding: List[float] = await self.model.aembed(question)
 
-        qs = self.annotate(
-            cosine_distance=CosineDistance("embedding", question_embedding)
-        )
-        qs = qs.order_by("cosine_distance")[:k]
-        return await sync_to_async(list)(qs)
+        qs = None
+        index: Index
+        for index in self.model._meta.indexes:
+            if "embedding" in index.fields:
+                # vector_cosine_ops, halfvec_cosine_ops, etc.
+                if any("_cosine_ops" in cls for cls in index.opclasses):
+                    qs = (qs or self).annotate(
+                        distance=CosineDistance("embedding", question_embedding)
+                    )
+                    qs = qs.order_by("distance")
+                # vector_l2_ops, halfvec_l2_ops, etc.
+                elif any("_l2_ops" in cls for cls in index.opclasses):
+                    qs = (qs or self).annotate(
+                        distance=L2Distance("embedding", question_embedding)
+                    )
+                    qs = qs.order_by("distance")
+                else:
+                    raise NotImplementedError(
+                        f"{index.opclasses}에 대한 검색 구현이 필요합니다."
+                    )
+
+        if qs is None:
+            raise ImproperlyConfigured(
+                f"{self.model.__name__} 모델에 embedding 필드에 대한 인덱스를 추가해주세요."
+            )
+
+        return await sync_to_async(list)(qs[:k])
 
     def __repr__(self):
         return repr(list(self))  # QuerySet을 리스트처럼 출력
 
 
-class PaikdabangMenuDocument(LifecycleModelMixin, models.Model):
+class Document(LifecycleModelMixin, models.Model):
     openai_api_key = settings.RAG_OPENAI_API_KEY
     openai_base_url = settings.RAG_OPENAI_BASE_URL
     embedding_model = settings.RAG_EMBEDDING_MODEL
@@ -113,7 +136,7 @@ class PaikdabangMenuDocument(LifecycleModelMixin, models.Model):
 
     # .as_manager() 메서드를 통해 모델 매니저를 생성하여
     # 디폴트 모델 매니저를 커스텀 쿼리셋으로 교체합니다.
-    objects = PaikdabangMenuDocumentQuerySet.as_manager()
+    objects = DocumentQuerySet.as_manager()
 
     def __repr__(self):
         return f"Document(metadata={self.metadata}, page_content={self.page_content!r})"
@@ -171,9 +194,27 @@ class PaikdabangMenuDocument(LifecycleModelMixin, models.Model):
         return len(token)
 
     class Meta:
+        abstract = True
+
+
+class PaikdabangMenuDocument(Document):
+    class Meta:
         indexes = [
             HnswIndex(
                 name="paikdabang_menu_doc_idx",  # 데이터베이스 내에서 유일한 이름이어야 합니다.
+                fields=["embedding"],
+                m=16,
+                ef_construction=64,
+                opclasses=["vector_cosine_ops"],
+            ),
+        ]
+
+
+class StarbucksMenuDocument(Document):
+    class Meta:
+        indexes = [
+            HnswIndex(
+                name="starbucks_menu_doc_idx",
                 fields=["embedding"],
                 m=16,
                 ef_construction=64,

@@ -1,49 +1,64 @@
+import sys
 from pathlib import Path
+from typing import Type
 
 from django.core.management import BaseCommand
+from django.db.models import Model
+from django.utils.module_loading import import_string
 from tqdm import tqdm
 
 from chat import rag
-from chat.models import PaikdabangMenuDocument
+from chat.models import Document
 
 
 class Command(BaseCommand):
     def add_arguments(self, parser):
+        parser.add_argument(
+            "model",
+            type=str,
+            help="저장할 Document 모델 경로 (예: 'chat.PaikdabangMenuDocument')",
+        )
         parser.add_argument(
             "txt_file_path",
             type=str,
             help="VectorStore로 저장할 원본 텍스트 파일 경로",
         )
 
+    def print_error(self, msg: str) -> None:
+        self.stdout.write(self.style.ERROR(msg))
+        sys.exit(1)
+
+    def get_model_class(self, model_path: str) -> Type[Model]:
+        try:
+            module_name, class_name = model_path.rsplit(".", 1)
+            dotted_path = ".".join((module_name, "models", class_name))
+            ModelClass: Type[Model] = import_string(dotted_path)
+        except ImportError as e:
+            self.print_error(f"{model_path} 경로의 모델을 임포트할 수 없습니다. ({e})")
+
+        if not issubclass(ModelClass, Document):
+            self.print_error("Document 모델을 상속받은 모델이 아닙니다.")
+        elif ModelClass._meta.abstract:
+            self.print_error("추상화 모델은 사용할 수 없습니다.")
+
+        return ModelClass
+
     def handle(self, *args, **options):
+        model_name = options["model"]
         txt_file_path = Path(options["txt_file_path"])
+
+        ModelClass = self.get_model_class(model_name)
 
         doc_list = rag.load(txt_file_path)
         print(f"loaded {len(doc_list)} documents")
         doc_list = rag.split(doc_list)
         print(f"split into {len(doc_list)} documents")
 
-        # vector_store = rag.VectorStore.make(doc_list)
-        # vector_store.save(settings.VECTOR_STORE_PATH)
-
-        # 문서 목록을 순회하며, 모델 인스턴스를 생성하고 저장합니다.
-        # for doc in tqdm(doc_list):
-        #     paikdabang_menu_document = PaikdabangMenuDocument(
-        #         page_content=doc.page_content,
-        #         metadata=doc.metadata,
-        #     )
-        #     paikdabang_menu_document.save()
-
-        # 객체만 생성할 뿐, 아직 데이터베이스 저장 전 입니다.
-        paikdabang_menu_documents = [
-            PaikdabangMenuDocument(
+        new_doc_list = [
+            ModelClass(
                 page_content=doc.page_content,
                 metadata=doc.metadata,
             )
-            for doc in doc_list
+            for doc in tqdm(doc_list)
         ]
-
-        # 1000개씩 묶어서 데이터베이스로의 저장을 시도합니다.
-        PaikdabangMenuDocument.objects.bulk_create(
-            paikdabang_menu_documents, batch_size=1000
-        )
+        ModelClass.objects.bulk_create(new_doc_list)
