@@ -6,14 +6,15 @@ django-debug-toolbar
 django-environ~=0.11.2
 django-extensions
 
-openai~=1.59.6
+openai
 langchain
 langchain-core
-scikit-learn~=1.6.1
-numpy~=2.2.1
+scikit-learn
+numpy
 
 colorlog
 
 psycopg2-binary
 pgvector
 tiktoken
+django-lifecycle
