@@ -141,9 +141,18 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 INTERNAL_IPS = env.list("INTERNAL_IPS", default=["127.0.0.1"])
 
 
-OPENAI_API_KEY = env.str("OPENAI_API_KEY", default=None)
+# RAG
 
+# 디폴트 값으로 사용할 OpenAI API key와 BASE_URL
+OPENAI_API_KEY = env.str("OPENAI_API_KEY", default=None)
+OPENAI_BASE_URL = env.str("OPENAI_BASE_URL", default=None)
+# RAG에서 사용할 OpenAI API key와 BASE_URL
+RAG_OPENAI_API_KEY = env.str("RAG_OPENAI_API_KEY", default=OPENAI_API_KEY)
+RAG_OPENAI_BASE_URL = env.str("RAG_OPENAI_BASE_URL", default=OPENAI_BASE_URL)
+# RAG에서 사용할 임베딩 모델
 RAG_EMBEDDING_MODEL = env.str("RAG_EMBEDDING_MODEL", default="text-embedding-3-small")
+# RAG에서 사용할 임베딩 모델의 차원수
+RAG_EMBEDDING_DIMENSIONS = env.int("RAG_EMBEDDING_DIMENSIONS", default=1536)
 
 VECTOR_STORE_PATH = env.str(
     "VECTOR_STORE_PATH",
