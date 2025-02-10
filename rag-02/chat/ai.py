@@ -7,6 +7,7 @@ from openai import AsyncStream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from . import rag
+from .models import PaikdabangMenuDocument
 
 logger = logging.getLogger(__name__)
 
@@ -28,20 +29,24 @@ def make_ai_message(system_prompt: str, human_message: str) -> str:
 
 
 class PaikdabangAI:
-    def __init__(self):
-        try:
-            self.vector_store = rag.VectorStore.load(settings.VECTOR_STORE_PATH)
-            logger.debug("Loaded vector store %s items", len(self.vector_store))
-        except FileNotFoundError as e:
-            logger.error("Failed to load vector store: %s", e)
-            self.vector_store = rag.VectorStore()
+    # def __init__(self):
+    #     try:
+    #         self.vector_store = rag.VectorStore.load(settings.VECTOR_STORE_PATH)
+    #         logger.debug("Loaded vector store %s items", len(self.vector_store))
+    #     except FileNotFoundError as e:
+    #         logger.error("Failed to load vector store: %s", e)
+    #         self.vector_store = rag.VectorStore()
 
     async def get_response(self, question: str, stream: bool = False) -> Union[
         ChatCompletion,  # 동기 OpenAI API 호출 시
         AsyncStream[ChatCompletionChunk],  # 비동기 OpenAI API 호출 시
     ]:
-        search_doc_list = self.vector_store.search(question)
-        지식 = "\n\n".join(doc.page_content for doc in search_doc_list)
+        # search_doc_list = self.vector_store.search(question)
+        # 지식 = "\n\n".join(doc.page_content for doc in search_doc_list)
+
+        # 쿼리셋을 통한 유사도 검색
+        doc_list = await PaikdabangMenuDocument.objects.search(question)
+        지식 = "\n\n".join(doc.page_content for doc in doc_list)
 
         return await async_client.chat.completions.create(
             messages=[

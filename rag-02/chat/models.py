@@ -1,10 +1,11 @@
 from typing import List
 
 import openai
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import models
 from django_lifecycle import hook, BEFORE_CREATE, BEFORE_UPDATE, LifecycleModelMixin
-from pgvector.django import VectorField, HnswIndex
+from pgvector.django import VectorField, HnswIndex, CosineDistance
 
 from chat.validators import MaxTokenValidator
 
@@ -29,6 +30,18 @@ class Item(models.Model):
         ]
 
 
+class PaikdabangMenuDocumentQuerySet(models.QuerySet):
+    async def search(self, question: str, k: int = 4) -> List["PaikdabangMenuDocument"]:
+        # 모델 클래스의 비동기 aembed 클래스 함수를 호출하여 질문 벡터를 생성합니다.
+        question_embedding: List[float] = await self.model.aembed(question)
+
+        qs = self.annotate(
+            cosine_distance=CosineDistance("embedding", question_embedding)
+        )
+        qs = qs.order_by("cosine_distance")[:k]
+        return await sync_to_async(list)(qs)
+
+
 class PaikdabangMenuDocument(LifecycleModelMixin, models.Model):
     openai_api_key = settings.RAG_OPENAI_API_KEY
     openai_base_url = settings.RAG_OPENAI_BASE_URL
@@ -42,6 +55,10 @@ class PaikdabangMenuDocument(LifecycleModelMixin, models.Model):
     embedding = VectorField(dimensions=embedding_dimensions, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # .as_manager() 메서드를 통해 모델 매니저를 생성하여
+    # 디폴트 모델 매니저를 커스텀 쿼리셋으로 교체합니다.
+    objects = PaikdabangMenuDocumentQuerySet.as_manager()
 
     def update_embedding(self, is_force: bool = False) -> None:
         # 강제 업데이트 혹은 임베딩 데이터가 없는 경우에만 임베딩 데이터를 생성합니다.
