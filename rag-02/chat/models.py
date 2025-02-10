@@ -41,6 +41,9 @@ class PaikdabangMenuDocumentQuerySet(models.QuerySet):
         qs = qs.order_by("cosine_distance")[:k]
         return await sync_to_async(list)(qs)
 
+    def __repr__(self):
+        return repr(list(self))  # QuerySet을 리스트처럼 출력
+
 
 class PaikdabangMenuDocument(LifecycleModelMixin, models.Model):
     openai_api_key = settings.RAG_OPENAI_API_KEY
@@ -59,6 +62,12 @@ class PaikdabangMenuDocument(LifecycleModelMixin, models.Model):
     # .as_manager() 메서드를 통해 모델 매니저를 생성하여
     # 디폴트 모델 매니저를 커스텀 쿼리셋으로 교체합니다.
     objects = PaikdabangMenuDocumentQuerySet.as_manager()
+
+    def __repr__(self):
+        return f"Document(metadata={self.metadata}, page_content={self.page_content!r})"
+
+    def __str__(self):
+        return self.__repr__()
 
     def update_embedding(self, is_force: bool = False) -> None:
         # 강제 업데이트 혹은 임베딩 데이터가 없는 경우에만 임베딩 데이터를 생성합니다.
