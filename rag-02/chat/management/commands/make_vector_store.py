@@ -1,9 +1,10 @@
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management import BaseCommand
+from tqdm import tqdm
 
 from chat import rag
+from chat.models import PaikdabangMenuDocument
 
 
 class Command(BaseCommand):
@@ -22,5 +23,13 @@ class Command(BaseCommand):
         doc_list = rag.split(doc_list)
         print(f"split into {len(doc_list)} documents")
 
-        vector_store = rag.VectorStore.make(doc_list)
-        vector_store.save(settings.VECTOR_STORE_PATH)
+        # vector_store = rag.VectorStore.make(doc_list)
+        # vector_store.save(settings.VECTOR_STORE_PATH)
+
+        # 문서 목록을 순회하며, 모델 인스턴스를 생성하고 저장합니다.
+        for doc in tqdm(doc_list):
+            paikdabang_menu_document = PaikdabangMenuDocument(
+                page_content=doc.page_content,
+                metadata=doc.metadata,
+            )
+            paikdabang_menu_document.save()
