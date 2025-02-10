@@ -18,3 +18,5 @@ psycopg2-binary
 pgvector
 tiktoken
 django-lifecycle
+anthropic
+google-genai

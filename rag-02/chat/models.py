@@ -6,11 +6,19 @@ import openai
 import tiktoken
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
+from django.core import checks
+from django.core.exceptions import ImproperlyConfigured, FieldDoesNotExist
 from django.db import models
 from django.db.models import Index
 from django_lifecycle import hook, BEFORE_CREATE, BEFORE_UPDATE, LifecycleModelMixin
-from pgvector.django import VectorField, HnswIndex, CosineDistance, L2Distance
+from pgvector.django import (
+    VectorField,
+    HnswIndex,
+    CosineDistance,
+    L2Distance,
+    HalfVectorField,
+    IvfflatIndex,
+)
 
 from chat.utils import make_groups_by_length
 from chat.validators import MaxTokenValidator
@@ -193,6 +201,64 @@ class Document(LifecycleModelMixin, models.Model):
         token: List[int] = encoding.encode(text or "")
         return len(token)
 
+    @classmethod
+    def check(cls, **kwargs):
+        embedding_field_name = "embedding"
+
+        errors = super().check(**kwargs)
+
+        def add_error(msg: str, hint: str = None):
+            errors.append(checks.Error(msg, hint=hint, obj=cls))
+
+        embedding_dimensions: int = getattr(cls, "embedding_dimensions", None)
+        if embedding_dimensions is None:
+            add_error(
+                "embedding_dimensions 클래스 변수가 누락되었습니다.",
+                hint="embedding_dimensions 설정을 추가해주세요.",
+            )
+
+        try:
+            embedding_field = cls._meta.get_field(embedding_field_name)
+        except FieldDoesNotExist:
+            add_error(
+                f"{embedding_field_name} 필드가 누락되었습니다.",
+                hint="embedding 필드를 추가해주세요.",
+            )
+        else:
+            if embedding_dimensions > 2000:
+                if not isinstance(embedding_field, HalfVectorField):
+                    add_error(
+                        f"{embedding_dimensions} 차원은 {embedding_field.__class__.__name__}에서 지원하지 않습니다.",
+                        hint=f"{embedding_dimensions} 차원 이상은 HalfVectorField를 사용해주세요.",
+                    )
+
+            for index in cls._meta.indexes:
+                if embedding_field_name in index.fields:
+                    if isinstance(index, (HnswIndex, IvfflatIndex)):
+                        if embedding_dimensions <= 2000:
+                            for opclass_name in index.opclasses:
+                                if "halfvec_" in opclass_name:
+                                    add_error(
+                                        f"{embedding_field.name} 필드는 {embedding_field.__class__.__name__} 타입으로서 "
+                                        f"{opclass_name}를 지원하지 않습니다.",
+                                        hint=f"{opclass_name.replace('halfvec_', 'vector_')}로 변경해주세요.",
+                                    )
+                        else:
+                            for opclass_name in index.opclasses:
+                                if "vector_" in opclass_name:
+                                    add_error(
+                                        f"{embedding_field.name} 필드는 {embedding_field.__class__.__name__} 타입으로서 "
+                                        f"{opclass_name}를 지원하지 않습니다.",
+                                        hint=f"{opclass_name.replace('vector_', 'halfvec_')}로 변경해주세요.",
+                                    )
+                    else:
+                        add_error(
+                            f"Document 모델 check 메서드에서 {index.__class__.__name__}에 대한 확인이 누락되었습니다.",
+                            hint=f"{index.__class__.__name__} 인덱스에 대한 check 루틴을 보완해주세요.",
+                        )
+
+        return errors
+
     class Meta:
         abstract = True
 
@@ -219,5 +285,26 @@ class StarbucksMenuDocument(Document):
                 m=16,
                 ef_construction=64,
                 opclasses=["vector_cosine_ops"],
+            ),
+        ]
+
+
+class TaxLawDocument(Document):
+    # category = models.ForeignKey(...)
+
+    embedding_model = "text-embedding-3-large"
+    embedding_dimensions = 1536 * 2
+
+    embedding = HalfVectorField(dimensions=embedding_dimensions, editable=False)
+
+    class Meta:
+        indexes = [
+            HnswIndex(
+                name="taxlaw_doc_idx",
+                fields=["embedding"],
+                m=16,
+                ef_construction=64,
+                # halfvec 타입용 코사인 거리 연산 클래스
+                opclasses=["halfvec_cosine_ops"],
             ),
         ]
