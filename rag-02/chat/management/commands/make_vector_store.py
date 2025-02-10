@@ -27,9 +27,23 @@ class Command(BaseCommand):
         # vector_store.save(settings.VECTOR_STORE_PATH)
 
         # 문서 목록을 순회하며, 모델 인스턴스를 생성하고 저장합니다.
-        for doc in tqdm(doc_list):
-            paikdabang_menu_document = PaikdabangMenuDocument(
+        # for doc in tqdm(doc_list):
+        #     paikdabang_menu_document = PaikdabangMenuDocument(
+        #         page_content=doc.page_content,
+        #         metadata=doc.metadata,
+        #     )
+        #     paikdabang_menu_document.save()
+
+        # 객체만 생성할 뿐, 아직 데이터베이스 저장 전 입니다.
+        paikdabang_menu_documents = [
+            PaikdabangMenuDocument(
                 page_content=doc.page_content,
                 metadata=doc.metadata,
             )
-            paikdabang_menu_document.save()
+            for doc in doc_list
+        ]
+
+        # 1000개씩 묶어서 데이터베이스로의 저장을 시도합니다.
+        PaikdabangMenuDocument.objects.bulk_create(
+            paikdabang_menu_documents, batch_size=1000
+        )

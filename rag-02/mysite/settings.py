@@ -153,6 +153,11 @@ RAG_OPENAI_BASE_URL = env.str("RAG_OPENAI_BASE_URL", default=OPENAI_BASE_URL)
 RAG_EMBEDDING_MODEL = env.str("RAG_EMBEDDING_MODEL", default="text-embedding-3-small")
 # RAG에서 사용할 임베딩 모델의 차원수
 RAG_EMBEDDING_DIMENSIONS = env.int("RAG_EMBEDDING_DIMENSIONS", default=1536)
+# Tier1, text-embedding-3-small 모델의 TPM : 1,000,000
+RAG_EMBEDDING_MAX_TOKENS_LIMIT = env.int(
+    "RAG_EMBEDDING_MAX_TOKENS_LIMIT", default=1_000_000 / 10
+)
+
 
 VECTOR_STORE_PATH = env.str(
     "VECTOR_STORE_PATH",
